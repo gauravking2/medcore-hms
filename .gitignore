@@ -14,3 +14,4 @@ untitled-project/
 .vscode/
 .idea/
 apps/backend/src/generated/prisma/
+apps/backend/apps/
