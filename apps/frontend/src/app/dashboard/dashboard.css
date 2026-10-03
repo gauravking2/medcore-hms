@@ -1,0 +1,27 @@
+.mc-dashboard { display: grid; gap: 18px; }
+.mc-dashboard-signin { display: grid; gap: 8px; max-width: 560px; }
+.mc-range { display: inline-flex; gap: 4px; border: 1px solid var(--mc-border); border-radius: 12px; padding: 4px; background: color-mix(in srgb, var(--mc-surface) 70%, transparent); }
+.mc-range-btn { border: 0; background: transparent; color: var(--mc-text-muted); border-radius: 9px; padding: 8px 14px; font-size: 0.8rem; font-weight: 650; }
+.mc-range-active { color: var(--mc-text); background: var(--mc-nav-active); box-shadow: var(--mc-glow); }
+.mc-scope-card { padding: 16px; }
+.mc-work-grid { display: grid; gap: 14px; grid-template-columns: 1.25fr 0.75fr; align-items: start; }
+.mc-work-card { padding: 18px; }
+.mc-work-title { margin: 0 0 8px; font-size: 0.95rem; }
+.mc-work-subtitle { margin: 14px 0 8px; font-size: 0.82rem; color: var(--mc-text-muted); }
+.mc-work-card .mc-kpi-number { font-size: 2rem; }
+.mc-work-side { display: grid; gap: 14px; }
+.mc-work-link, .mc-portal-link { color: var(--mc-accent-2); font-weight: 700; font-size: 0.82rem; }
+.mc-mini-feed { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 7px; font-size: 0.82rem; }
+.mc-mini-feed li { display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--mc-border); border-radius: 10px; padding: 8px 10px; min-width: 0; overflow-wrap: break-word; }
+.mc-mini-feed li > span:first-child { min-width: 0; overflow-wrap: break-word; }
+.mc-mini-feed li > span:last-child { flex: none; }
+.mc-activity-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.mc-activity-feed li { display: grid; gap: 2px; border-left: 2px solid var(--mc-border-strong); padding-left: 10px; font-size: 0.82rem; min-width: 0; overflow-wrap: break-word; }
+.mc-activity-feed strong { font-size: 0.82rem; overflow-wrap: break-word; }
+.mc-activity-feed span { color: var(--mc-text-muted); font-size: 0.76rem; }
+.mc-quick-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.mc-quick-action { font-size: 0.8rem; font-weight: 700; border: 1px solid var(--mc-border); border-radius: 10px; padding: 8px 12px; background: color-mix(in srgb, var(--mc-surface-2) 46%, transparent); }
+.mc-quick-action:hover { border-color: var(--mc-border-strong); }
+.mc-muted-text { color: var(--mc-text-muted); font-size: 0.84rem; }
+@media (max-width: 1023px) { .mc-work-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .mc-work-card { padding: 16px; } }
