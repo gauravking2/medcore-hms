@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { LabOrderStatus, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthContext } from '../auth/auth.service';
@@ -15,6 +15,14 @@ const LAB_REPORT_ALLOWED = new Map<string, string[]>([['application/pdf', ['.pdf
 function extensionOf(fileName: string): string {
   const dot = fileName.lastIndexOf('.');
   return dot >= 0 ? fileName.slice(dot).toLowerCase() : '';
+}
+
+function isSerializationFailure(error: unknown): boolean {
+  // Postgres aborts one Serializable writer with SQLSTATE 40001; Prisma
+  // surfaces it as P2034 (or the raw message for $queryRaw paths).
+  const code = (error as NodeJS.ErrnoException)?.code;
+  const message = (error as Error)?.message ?? '';
+  return code === 'P2034' || message.includes('40001') || message.includes('could not serialize');
 }
 
 @Injectable()
@@ -379,8 +387,55 @@ export class CareService {
     const now = new Date();
     // FIFO: oldest manufacturing date first, then earliest expiry. Expired or
     // quarantined batches are never eligible — enforced in the query itself.
-    try {
-      const result = await this.prisma.$transaction(async (tx) => {
+    // The transaction runs at Serializable isolation, so a concurrent writer
+    // can abort this transaction with a 40001 serialization failure instead
+    // of reaching the stock check. Retrying is the textbook response: the
+    // retry re-reads committed stock and reports a genuine shortage as 409.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        const result = await this.dispenseTransaction(prescription, medicine, requested, user, now);
+        await this.audit.record({ userId: user.userId, hospitalId: prescription.hospitalId, action: 'pharmacy.dispense', entityType: 'Prescription', entityId: prescription.id, ipAddress: ip ?? null, metadata: { medicineId: medicine.id, quantity: requested, legs: result.length } });
+        return { legs: result, quantity: requested };
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException)?.code;
+        if (code === 'INSUFFICIENT_STOCK' || code === 'NEGATIVE_STOCK') throw error;
+        if (!isSerializationFailure(error) || attempt >= 3) {
+          if (isSerializationFailure(error)) throw await this.afterSerializationConflict(prescription.hospitalId, medicine.id, requested);
+          throw error;
+        }
+      }
+    }
+  }
+
+  private async remainingEligibleStock(hospitalId: string, medicineId: string, now: Date): Promise<number> {
+    const batches = await this.prisma.inventoryBatch.findMany({
+      where: { medicineId, hospitalId, quarantined: false, expiryDate: { gt: now }, quantity: { gt: 0 } },
+      select: { quantity: true },
+    });
+    return batches.reduce((total, batch) => total + Number(batch.quantity), 0);
+  }
+
+  private async afterSerializationConflict(hospitalId: string, medicineId: string, requested: number) {
+    // Retries exhausted under sustained contention. Re-read committed stock:
+    // a genuine shortage is 409 INSUFFICIENT_STOCK; otherwise report the
+    // contention itself as 409 so concurrent writers never surface a 500.
+    const available = await this.remainingEligibleStock(hospitalId, medicineId, new Date());
+    if (available < requested) {
+      const error = new Error('Insufficient stock to fulfil this quantity.');
+      (error as NodeJS.ErrnoException).code = 'INSUFFICIENT_STOCK';
+      return error;
+    }
+    return new ConflictException({ success: false, error: { code: 'CONCURRENT_UPDATE_CONFLICT', message: 'Another update is in progress. Please retry.' } });
+  }
+
+  private async dispenseTransaction(
+    prescription: { id: string; hospitalId: string },
+    medicine: { id: string },
+    requested: number,
+    user: AuthContext,
+    now: Date,
+  ): Promise<Array<{ batchId: string; quantity: number; balanceAfter: number }>> {
+    return this.prisma.$transaction(async (tx) => {
         const batches = await tx.inventoryBatch.findMany({
           where: { medicineId: medicine.id, hospitalId: prescription.hospitalId, quarantined: false, expiryDate: { gt: now }, quantity: { gt: 0 } },
           orderBy: [{ manufacturingDate: 'asc' }, { expiryDate: 'asc' }, { createdAt: 'asc' }],
@@ -425,13 +480,6 @@ export class CareService {
         }
         return legs;
       }, { isolationLevel: 'Serializable' });
-      await this.audit.record({ userId: user.userId, hospitalId: prescription.hospitalId, action: 'pharmacy.dispense', entityType: 'Prescription', entityId: prescription.id, ipAddress: ip ?? null, metadata: { medicineId: medicine.id, quantity: requested, legs: result.length } });
-      return { legs: result, quantity: requested };
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException)?.code;
-      if (code === 'INSUFFICIENT_STOCK' || code === 'NEGATIVE_STOCK') throw error;
-      throw error;
-    }
   }
 
   async validPrescriptions(user: AuthContext, hospitalId: string | undefined, page: { page: number; limit: number; skip: number }) {
