@@ -225,3 +225,11 @@ No other issues found during the executed verification.
 ## 13. Final Recommendation
 
 **The application passes final acceptance: Playwright Desktop 12/12, Tablet 12/12, Mobile 12/12 (36/36), backend 110/110, audit 45/45.** All 9 roles authenticate and operate within tenant/patient isolation (closure regression: `qa-super-admin` 200, platform analytics 200, patient RBAC 403, tenant scoping 8 vs 1 hospitals; backend auth suite 14/14). All major clinical, inventory, billing, payment, notification, portal, search, and analytics workflows are verified by live probing plus fully green suites, and production builds start and serve correctly. Both QA findings are closed: the patient-number defect was fixed with a minimal safe change and re-verified end-to-end, and the E2E credential was aligned to the seeded QA account with a one-line test-only change (no application or authentication behavior altered). Recommended next steps before production: provision production payment credentials and re-verify webhooks, and run the suite once more in CI with Docker Compose.
+
+---
+
+## 14. CI Closure (2026-10-04)
+
+- **Workflow:** `.github/workflows/ci.yml` (`quality` job) — added PostgreSQL 16 + Redis 7 service containers (ports 5433:5432 / 6380:6379, health checks), CI-only `DATABASE_URL`/`REDIS_URL`/`JWT_SECRET`, and ordered steps: `npm ci` → Prisma generate → migrate deploy (7/7) → seed → lint → typecheck → test → build.
+- **BUG-003 (HIGH, FIXED):** concurrent pharmacy dispense could abort with Postgres 40001 under `Serializable` isolation and surface HTTP 500 (CI run 37145141585: 109/110, RX-20/21). Fix in `apps/backend/src/care/care.service.ts`: bounded retry (×3) on serialization failure with stock re-check; genuine shortage → 409 `INSUFFICIENT_STOCK`, sustained contention → 409 `CONCURRENT_UPDATE_CONFLICT`. No test changed; isolation level unchanged.
+- **GitHub Actions run 37145682803 (commit `2e4b3b6`): PASS** — PG healthy, Redis healthy, migrate 7/7, seed PASS, backend **110/110**, lint PASS, typecheck PASS, build PASS.
