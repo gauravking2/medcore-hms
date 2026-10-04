@@ -8,7 +8,7 @@ import { Server } from 'socket.io';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './common/api-exception.filter';
-import { getEnvironment } from './config/environment';
+import { getEnvironment, parseAllowedOrigins } from './config/environment';
 import { NotificationsGateway } from './notifications/notifications.gateway';
 import { NotificationsService } from './notifications/notifications.service';
 
@@ -27,10 +27,10 @@ async function bootstrap() {
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
   app.useGlobalFilters(new ApiExceptionFilter());
-  const origins = (env.CORS_ORIGINS ?? env.FRONTEND_URL ?? 'http://localhost:3000')
-    .split(',')
-    .map((origin) => origin.trim())
-    .filter(Boolean);
+  // Render-style dashboards often persist env values with pasted quotes or a
+  // trailing slash; normalize so the exact production origin still matches.
+  // A wildcard is never used here because credentials are enabled.
+  const origins = parseAllowedOrigins(env.CORS_ORIGINS ?? env.FRONTEND_URL, 'http://localhost:3000');
   app.enableCors({ origin: origins, credentials: true });
   const swagger = new DocumentBuilder()
     .setTitle('MedCore HMS API')

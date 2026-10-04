@@ -21,6 +21,21 @@ const environmentSchema = z.object({
 
 export type AppEnvironment = z.infer<typeof environmentSchema>;
 
+const QUOTE_TRIM = /^["']+|["']+$/g;
+
+/**
+ * Normalize a comma-separated origin list for CORS use. Trims whitespace,
+ * strips accidentally pasted surrounding quotes and trailing slashes so an
+ * exact production origin still matches. Never introduces a wildcard: with
+ * credentials enabled, `*` would be both insecure and rejected by browsers.
+ */
+export function parseAllowedOrigins(raw: string | undefined, fallback: string): string[] {
+  return (raw ?? fallback)
+    .split(',')
+    .map((origin) => origin.trim().replace(QUOTE_TRIM, '').replace(/\/+$/, ''))
+    .filter((origin) => origin.length > 0 && origin !== '*');
+}
+
 let cached: AppEnvironment | null = null;
 
 export function getEnvironment(environment: NodeJS.ProcessEnv = process.env): AppEnvironment {

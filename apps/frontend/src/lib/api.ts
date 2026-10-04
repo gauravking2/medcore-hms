@@ -40,8 +40,19 @@ async function parse<T>(response: Response, raw?: true): Promise<unknown> {
   return (body as ApiSuccess<T>).data;
 }
 
+async function request(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    // The server never responded (network down, wrong API base, or CORS
+    // preflight blocked). Surface a distinct code so pages can show the real
+    // failure instead of a generic fallback. No URLs or secrets included.
+    throw new ApiError('NETWORK_ERROR', 'Cannot reach the server. Check your connection and try again.', 0);
+  }
+}
+
 export async function apiPost<T>(path: string, body: unknown, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}/api${path}`, {
+  const response = await request(`${API_BASE}/api${path}`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -52,7 +63,7 @@ export async function apiPost<T>(path: string, body: unknown, init?: RequestInit
 }
 
 export async function apiGet<T>(path: string, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/api${path}`, {
+  const response = await request(`${API_BASE}/api${path}`, {
     credentials: 'include',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
@@ -60,7 +71,7 @@ export async function apiGet<T>(path: string, token?: string): Promise<T> {
 }
 
 export async function apiGetPage<T>(path: string, token?: string): Promise<ApiPaginated<T>> {
-  const response = await fetch(`${API_BASE}/api${path}`, {
+  const response = await request(`${API_BASE}/api${path}`, {
     credentials: 'include',
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
@@ -72,7 +83,7 @@ export async function apiGetPage<T>(path: string, token?: string): Promise<ApiPa
 }
 
 export async function apiPatch<T>(path: string, body: unknown, token?: string): Promise<T> {
-  const response = await fetch(`${API_BASE}/api${path}`, {
+  const response = await request(`${API_BASE}/api${path}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
