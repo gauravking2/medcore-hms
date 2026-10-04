@@ -54,6 +54,10 @@ describe('Production cross-origin auth (Render frontend origin)', () => {
     ]);
     expect(parseAllowedOrigins(`*, ${PROD_FRONTEND}`, 'http://localhost:3000')).toEqual([PROD_FRONTEND]);
     expect(parseAllowedOrigins(undefined, 'http://localhost:3000')).toEqual(['http://localhost:3000']);
+    expect(parseAllowedOrigins('medcore-frontend-1q4k.onrender.com', 'http://localhost:3000')).toEqual([
+      'https://medcore-frontend-1q4k.onrender.com',
+    ]);
+    expect(parseAllowedOrigins('http://localhost:3000', 'http://localhost:3000')).toEqual(['http://localhost:3000']);
   });
 
   it('preflight from the production frontend origin is accepted', async () => {

@@ -1,0 +1,54 @@
+# Render blueprint: deterministic production setup for MedCore HMS.
+# Adopt via Render Dashboard -> New -> Blueprint, then fill the `sync: false`
+# secrets (DATABASE_URL, REDIS_URL). Host references wire the services
+# together; the apps accept bare hostnames and assume HTTPS for public hosts.
+services:
+  - type: web
+    name: medcore-backend
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci --workspace=@medcore/backend && npx prisma generate --schema apps/backend/prisma/schema.prisma && npm run build --workspace=@medcore/backend
+    preDeployCommand: npx prisma migrate deploy --schema apps/backend/prisma/schema.prisma
+    startCommand: npm run start --workspace=@medcore/backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: medcore-frontend
+          property: host
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: medcore-frontend
+          property: host
+      - key: EMAIL_PROVIDER
+        value: dev
+      - key: SMS_PROVIDER
+        value: dev
+  - type: web
+    name: medcore-frontend
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm ci --workspace=@medcore/frontend && npm run build --workspace=@medcore/frontend
+    startCommand: npm run start --workspace=@medcore/frontend
+    healthCheckPath: /login
+    envVars:
+      # Injected at BUILD time so Next.js bakes it into the client bundle.
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: medcore-backend
+          property: host

@@ -43,7 +43,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
   const reflector = app.get(Reflector);
   void reflector;
-  const port = env.BACKEND_PORT;
+  const port = Number(process.env.PORT) || env.BACKEND_PORT;
   await app.listen(port, '0.0.0.0');
   const httpServer = app.getHttpServer() as Parameters<Server['attach']>[0];
   const io = new Server(httpServer, { path: '/socket.io', cors: { origin: origins, credentials: true } });

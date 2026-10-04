@@ -33,6 +33,12 @@ export function parseAllowedOrigins(raw: string | undefined, fallback: string): 
   return (raw ?? fallback)
     .split(',')
     .map((origin) => origin.trim().replace(QUOTE_TRIM, '').replace(/\/+$/, ''))
+    .map((origin) => {
+      // Deployment blueprints may inject a bare public hostname (no scheme);
+      // public hosts always use HTTPS. Explicit values pass through untouched.
+      if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(origin) && origin.includes('.')) return `https://${origin}`;
+      return origin;
+    })
     .filter((origin) => origin.length > 0 && origin !== '*');
 }
 

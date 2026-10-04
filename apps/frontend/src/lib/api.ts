@@ -1,4 +1,13 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001').replace(/\/$/, '');
+function normalizeApiBase(raw: string | undefined): string {
+  const base = (raw ?? 'http://localhost:3001').trim().replace(/\/$/, '');
+  // Deployment blueprints may inject a bare public hostname (no scheme);
+  // public hosts always use HTTPS. Explicit values, including localhost,
+  // pass through untouched.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(base) && base.includes('.')) return `https://${base}`;
+  return base;
+}
+
+const API_BASE = normalizeApiBase(process.env.NEXT_PUBLIC_API_URL);
 
 export interface ApiSuccess<T> {
   success: true;
